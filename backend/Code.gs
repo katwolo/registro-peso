@@ -1,6 +1,7 @@
 /**
  * Registro de Peso — backend (Google Apps Script)
- * Lee y escribe datos directamente sobre la Google Sheet que actúa como base de datos.
+ * API JSON sobre la Google Sheet que actúa como base de datos. El frontend
+ * (GitHub Pages, estático) le pega a esto por fetch(); este script no sirve HTML.
  */
 
 var SPREADSHEET_ID = '1ZYoBPSLDR3CuYrv_6bkFDoMCLxjlAIkqIYYCn8sP4JI';
@@ -14,15 +15,33 @@ var PROFILES = [
 ];
 
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Registro de Peso')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return handleRequest_(e.parameter.action, e.parameter);
 }
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+// El body va como text/plain (no application/json) a propósito: eso mantiene
+// el POST como "simple request" y evita el preflight OPTIONS, que Apps
+// Script no puede responder con los headers CORS que un fetch cross-origin necesita.
+function doPost(e) {
+  var body = {};
+  try { body = JSON.parse(e.postData.contents); } catch (err) { /* body inválido: sigue vacío */ }
+  return handleRequest_(body.action, body);
+}
+
+function handleRequest_(action, params) {
+  var result;
+  try {
+    if (action === 'profiles') result = getProfiles();
+    else if (action === 'data') result = getProfileData(params.profile);
+    else if (action === 'addRecord') result = addRecord(params.profileKey, params.data);
+    else throw new Error('Acción desconocida: ' + action);
+    return jsonOutput_({ ok: true, result: result });
+  } catch (err) {
+    return jsonOutput_({ ok: false, error: err.message });
+  }
+}
+
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function getProfiles() {

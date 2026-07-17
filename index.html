@@ -1,27 +1,14 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="0; url=https://script.google.com/macros/s/AKfycby1dyy1cuGyEY8dSQp94_P5vVmjvDafjFLWz_yVFLlB3-lLwt_m2PAPCtMpy8ELg7T8/exec">
-<title>Registro de Peso</title>
-<style>
-  html, body {
-    margin: 0; height: 100%; display: flex; align-items: center; justify-content: center;
-    background: #f9f9f7; color: #0b0b0b; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  @media (prefers-color-scheme: dark) { html, body { background: #0d0d0d; color: #fff; } }
-  main { text-align: center; padding: 24px; }
-  a { color: #2a78d6; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro de Peso</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main>
-    <p>Abriendo Registro de Peso…</p>
-    <p><a href="https://script.google.com/macros/s/AKfycby1dyy1cuGyEY8dSQp94_P5vVmjvDafjFLWz_yVFLlB3-lLwt_m2PAPCtMpy8ELg7T8/exec">Tocá acá si no redirige solo</a></p>
-  </main>
-  <script>
-    location.replace('https://script.google.com/macros/s/AKfycby1dyy1cuGyEY8dSQp94_P5vVmjvDafjFLWz_yVFLlB3-lLwt_m2PAPCtMpy8ELg7T8/exec');
-  </script>
+  <div id="app"><div class="loading">Cargando…</div></div>
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
 </body>
 </html>

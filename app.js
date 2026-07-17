@@ -1,6 +1,7 @@
-<script>
 (function () {
   'use strict';
+
+  var API_URL = 'https://script.google.com/macros/s/AKfycby1dyy1cuGyEY8dSQp94_P5vVmjvDafjFLWz_yVFLlB3-lLwt_m2PAPCtMpy8ELg7T8/exec';
 
   var state = {
     profiles: [],
@@ -99,14 +100,28 @@
     ]));
   }
 
-  function run(name) {
-    var args = Array.prototype.slice.call(arguments, 1);
-    return new Promise(function (resolve, reject) {
-      var caller = google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject);
-      caller[name].apply(caller, args);
-    });
+  function apiGet(action, params) {
+    var url = new URL(API_URL);
+    url.searchParams.set('action', action);
+    Object.keys(params || {}).forEach(function (k) { url.searchParams.set(k, params[k]); });
+    return fetch(url.toString()).then(function (r) { return r.json(); }).then(unwrapApiResult_);
+  }
+
+  // El POST manda text/plain (no application/json) a propósito: así el
+  // pedido cross-origin queda como "simple request" y el navegador no
+  // dispara un preflight OPTIONS, que Apps Script no puede responder.
+  function apiPost(action, data) {
+    var body = Object.assign({ action: action }, data);
+    return fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); }).then(unwrapApiResult_);
+  }
+
+  function unwrapApiResult_(payload) {
+    if (!payload.ok) throw new Error(payload.error || 'Error desconocido');
+    return payload.result;
   }
 
   // -------------------------------------------------------------- routing
@@ -122,7 +137,7 @@
   window.addEventListener('hashchange', route);
 
   function init() {
-    run('getProfiles').then(function (profiles) {
+    apiGet('profiles').then(function (profiles) {
       state.profiles = profiles;
       route();
     }).catch(showError);
@@ -157,7 +172,7 @@
     state.range = 90;
     var app = document.getElementById('app');
     app.innerHTML = '<div class="loading">Cargando…</div>';
-    run('getProfileData', key).then(function (data) {
+    apiGet('data', { profile: key }).then(function (data) {
       state.data = data;
       renderDashboard();
     }).catch(showError);
@@ -519,7 +534,7 @@
       }
       saveBtn.disabled = true;
       saveBtn.textContent = 'Guardando…';
-      run('addRecord', state.profileKey, payload).then(function (data) {
+      apiPost('addRecord', { profileKey: state.profileKey, data: payload }).then(function (data) {
         state.data = data;
         closeModal();
         renderDashboard();
@@ -540,4 +555,3 @@
 
   document.addEventListener('DOMContentLoaded', init);
 })();
-</script>

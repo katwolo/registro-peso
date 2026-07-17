@@ -1,82 +1,116 @@
 # Registro de Peso
 
-App web (Google Apps Script) para registrar y visualizar el peso de Iván, Isa,
-Yami, Yoshi y Spike, usando como base de datos la Google Sheet:
+App web para registrar y visualizar el peso de Iván, Isa, Yami, Yoshi y
+Spike. La base de datos es la Google Sheet:
 
 `1ZYoBPSLDR3CuYrv_6bkFDoMCLxjlAIkqIYYCn8sP4JI`
 
-Cada perfil tiene un dashboard con: peso actual, cambio en los últimos 7/30
-días, progreso hacia el objetivo (peso, % grasa corporal, masa magra, edad
-metabólica y grasa visceral para Iván e Isa), un gráfico de evolución con
-línea de objetivo, y el historial de registros. Un botón "+ Nuevo registro"
-permite cargar mediciones sin tocar la planilla.
+## Arquitectura
 
-## Archivos
+Dos partes separadas:
 
-- `Code.gs` — backend: lee/escribe la Sheet, calcula estadísticas.
-- `Index.html`, `Stylesheet.html`, `JavaScript.html` — frontend (SPA sin
-  frameworks, un solo archivo HTML servido por `HtmlService`).
-- `appsscript.json` — manifest del proyecto.
+- **`backend/`** — Google Apps Script. Solo expone una API JSON
+  (`doGet`/`doPost`) que lee y escribe sobre la Sheet. No sirve HTML.
+- **Raíz del repo** (`index.html`, `styles.css`, `app.js`) — el frontend,
+  un sitio estático sin frameworks pensado para **GitHub Pages**. Le pide
+  los datos a la API por `fetch`.
 
-## Cómo desplegarla
+Cada perfil tiene un dashboard con: peso actual, cambio en los últimos
+7/30 días, progreso hacia el objetivo (peso, % grasa corporal, masa magra,
+edad metabólica y grasa visceral para Iván e Isa), un gráfico de evolución
+con línea de objetivo, y el historial de registros. El botón
+"+ Nuevo registro" carga mediciones nuevas sin tocar la planilla a mano.
 
-Esto requiere tu cuenta de Google (no puedo desplegarlo yo desde acá). Dos
-opciones:
+## 1. Desplegar el backend (Apps Script)
 
-### Opción A — Manual, desde script.google.com (más simple)
+Requiere tu cuenta de Google.
 
 1. Andá a https://script.google.com/ → **Nuevo proyecto**.
-2. Borrá el `Code.gs` vacío y pegá el contenido de `Code.gs` de este repo.
-3. Creá 3 archivos HTML (**Archivo → Nuevo → Html**) llamados exactamente
-   `Index`, `Stylesheet` y `JavaScript`, y pegá el contenido correspondiente.
-4. En **Configuración del proyecto** (ícono engranaje) → activá
-   "Mostrar archivo de manifiesto `appsscript.json`", abrilo y reemplazá su
-   contenido por el de este repo.
-5. **Implementar → Nueva implementación → tipo: Aplicación web**.
+2. Borrá el `Code.gs` vacío y pegá el contenido de `backend/Code.gs`.
+3. Activá el manifiesto (**Configuración del proyecto** → "Mostrar archivo
+   de manifiesto `appsscript.json`") y reemplazá su contenido por el de
+   `backend/appsscript.json`.
+4. **Implementar → Nueva implementación → tipo: Aplicación web.**
    - Ejecutar como: **Yo (tu cuenta)**.
-   - Quién tiene acceso: ver nota de privacidad más abajo.
-6. Autorizá los permisos (acceso a la Sheet) la primera vez.
-7. Copiá la URL de la app web — esa es la app.
+   - Quién tiene acceso: ver la nota de privacidad más abajo.
+5. Autorizá los permisos la primera vez (acceso a la Sheet).
+6. Copiá la URL `.../exec` que te da — es la API.
 
-### Opción B — Con `clasp` (CLI)
+Si más adelante cambiás algo en `backend/Code.gs`, para que la misma URL
+`/exec` sirva la versión nueva tenés que ir a **Gestionar implementaciones
+→ editar (lápiz) → Versión: Nueva versión → Implementar**. Guardar el
+archivo solo no alcanza.
 
-```bash
-npm install -g @google/clasp
-clasp login
-clasp create --type webapp --title "Registro de Peso" --rootDir .
-# clasp genera un scriptId nuevo en .clasp.json; o si ya creaste el proyecto
-# a mano en el paso A, copiá su scriptId a .clasp.json en vez de "create".
-clasp push
-clasp deploy
+Alternativa con `clasp` (CLI): `cd backend && clasp login && clasp create
+--type webapp --title "Registro de Peso API" --rootDir . && clasp push &&
+clasp deploy`.
+
+## 2. Conectar el frontend a esa API
+
+En `app.js`, la primera línea útil define:
+
+```js
+var API_URL = 'https://script.google.com/macros/s/AKfycby.../exec';
 ```
+
+Reemplazá esa URL por la que te dio tu implementación del paso 1 (si
+recién desplegaste, ya está puesta la URL que me pasaste; solo hace falta
+tocarla si el día de mañana creás una implementación nueva en vez de
+actualizar la existente).
+
+## 3. Publicar el frontend en GitHub Pages
+
+1. En GitHub: **Settings → Pages**.
+2. Source: **Deploy from a branch**.
+3. Branch: la rama de este repo, carpeta **/ (root)** → **Save**.
+4. Esperá 1-2 minutos. Va a quedar en `https://<usuario>.github.io/<repo>/`.
+
+## Cómo funciona el fetch cross-origin (CORS)
+
+El frontend vive en `github.io` y la API en `script.google.com` — son
+orígenes distintos, así que:
+
+- Las lecturas (`GET`) van con los parámetros en la URL (`?action=data&
+  profile=ivan`) — son "simple requests", sin problema de CORS.
+- Las escrituras (`POST`, para "+ Nuevo registro") mandan el body como
+  `Content-Type: text/plain` en vez de `application/json`. Es intencional:
+  así el pedido también queda como "simple request" y el navegador no
+  dispara un preflight `OPTIONS`, que Apps Script no puede responder con
+  los headers que un preflight cross-origin necesita. El backend
+  (`doPost`) igual parsea ese texto como JSON.
+
+Si en algún momento `fetch` falla con un error de CORS en la consola del
+navegador, es la primera pista a mirar (revisar Network → la respuesta de
+`script.google.com`), y decime el mensaje exacto para ajustarlo.
 
 ## Nota de privacidad importante
 
-El manifest (`appsscript.json`) trae `"access": "ANYONE_ANONYMOUS"`, es decir:
-cualquiera que tenga el link de la app puede verla y cargar registros **sin
-iniciar sesión** — así se evita cualquier pantalla de login, tal como se
-pidió. La URL que genera Apps Script es larga y no indexada, pero no es una
-verdadera barrera de seguridad si el link se filtra.
+El manifest (`backend/appsscript.json`) trae `"access": "ANYONE_ANONYMOUS"`:
+cualquiera con la URL de la API (o el link de GitHub Pages) puede ver y
+cargar registros **sin iniciar sesión**, tal como se pidió — sin pantalla
+de login en la app. Ni la URL de Apps Script ni la de GitHub Pages están
+indexadas, pero eso no es una barrera de seguridad real si el link se
+filtra.
 
-Si preferís requerir una cuenta de Google (sin agregar ninguna pantalla de
-login dentro de la app — Google se encarga antes de mostrarla), cambiá en
-`appsscript.json`:
+Si preferís requerir una cuenta de Google, cambiá en
+`backend/appsscript.json`:
 
 ```json
 "access": "ANYONE"
 ```
 
-y volvé a desplegar. Con `ANYONE` cualquier cuenta de Google puede entrar;
-si además querés limitarlo a tu familia, `DOMAIN` solo funciona con Google
-Workspace (no con cuentas @gmail.com sueltas).
+y volvé a desplegar. Con eso cualquier cuenta de Google puede usar la API
+(sin agregar ninguna pantalla de login dentro del frontend — Google se
+encarga antes de responder); `DOMAIN` solo sirve con Google Workspace, no
+con cuentas @gmail.com sueltas.
 
-## Estructura de la Sheet que usa la app
+## Estructura de la Sheet que usa la API
 
 - **Iván / Isa** (personas): fila 1 = objetivo (`Peso, %grasa, Masa magra,
   Edad, Grasa visceral`), fila 2 = encabezados, fila 3 en adelante = datos.
 - **Yami / Yoshi / Spike** (mascotas): solo `Fecha, Peso`, sin encabezado,
   desde la fila 1.
 
-La app respeta esa estructura tal cual está en tu planilla actual — no la
-modifica ni le agrega columnas. Los nuevos registros se agregan al final de
-cada hoja.
+La API respeta esa estructura tal cual está en tu planilla — no la
+modifica ni le agrega columnas. Los nuevos registros se agregan al final
+de cada hoja.
