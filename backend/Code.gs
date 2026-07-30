@@ -6,12 +6,19 @@
 
 var SPREADSHEET_ID = '1ZYoBPSLDR3CuYrv_6bkFDoMCLxjlAIkqIYYCn8sP4JI';
 
+// dataType controla qué columnas tiene la hoja: 'full' = peso + %grasa +
+// masa magra + edad metabólica + grasa visceral, con fila de objetivo
+// (como Iván/Isa). 'simple' = solo Fecha y Peso, sin objetivo (como
+// Yami/Yoshi/Spike o los bebés). category es solo el texto que se muestra
+// en la tarjeta de perfil, no afecta cómo se lee la hoja.
 var PROFILES = [
-  { key: 'ivan', sheetName: 'Iván ', name: 'Iván', type: 'person', icon: '🧔' },
-  { key: 'isa', sheetName: 'Isa', name: 'Isa', type: 'person', icon: '👩' },
-  { key: 'yami', sheetName: 'Yami', name: 'Yami', type: 'pet', icon: '🐱' },
-  { key: 'yoshi', sheetName: 'Yoshi', name: 'Yoshi', type: 'pet', icon: '🐱' },
-  { key: 'spike', sheetName: 'Spike', name: 'Spike', type: 'pet', icon: '🐱' }
+  { key: 'ivan', sheetName: 'Iván ', name: 'Iván', dataType: 'full', category: 'Persona', icon: '🧔' },
+  { key: 'isa', sheetName: 'Isa', name: 'Isa', dataType: 'full', category: 'Persona', icon: '👩' },
+  { key: 'ilian', sheetName: 'Ilian', name: 'Ilian', dataType: 'simple', category: 'Bebé', icon: '👶' },
+  { key: 'idris', sheetName: 'Idris', name: 'Idris', dataType: 'simple', category: 'Bebé', icon: '👶' },
+  { key: 'yami', sheetName: 'Yami', name: 'Yami', dataType: 'simple', category: 'Mascota', icon: '🐱' },
+  { key: 'yoshi', sheetName: 'Yoshi', name: 'Yoshi', dataType: 'simple', category: 'Mascota', icon: '🐱' },
+  { key: 'spike', sheetName: 'Spike', name: 'Spike', dataType: 'simple', category: 'Mascota', icon: '🐱' }
 ];
 
 function doGet(e) {
@@ -46,7 +53,7 @@ function jsonOutput_(obj) {
 
 function getProfiles() {
   return PROFILES.map(function (p) {
-    return { key: p.key, name: p.name, type: p.type, icon: p.icon };
+    return { key: p.key, name: p.name, dataType: p.dataType, category: p.category, icon: p.icon };
   });
 }
 
@@ -88,7 +95,7 @@ function getProfileData(profileKey) {
   var records = [];
   var objetivo = null;
 
-  if (profile.type === 'person') {
+  if (profile.dataType === 'full') {
     var objetivoRow = sheet.getRange(1, 2, 1, 5).getValues()[0];
     objetivo = {
       peso: parseNumber_(objetivoRow[0]),
@@ -123,7 +130,7 @@ function getProfileData(profileKey) {
 
   records.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 
-  var metricKeys = profile.type === 'person'
+  var metricKeys = profile.dataType === 'full'
     ? ['peso', 'grasa', 'masaMagra', 'edad', 'grasaVisceral']
     : ['peso'];
 
@@ -203,7 +210,7 @@ function addRecord(profileKey, data) {
   var peso = parseNumber_(data.peso);
   if (peso === null) throw new Error('El peso es obligatorio y debe ser un número');
 
-  if (profile.type === 'person') {
+  if (profile.dataType === 'full') {
     var grasaPct = parseNumber_(data.grasa);
     var row = [
       date,

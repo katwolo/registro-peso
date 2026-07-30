@@ -106,11 +106,32 @@ con cuentas @gmail.com sueltas.
 
 ## Estructura de la Sheet que usa la API
 
-- **Iván / Isa** (personas): fila 1 = objetivo (`Peso, %grasa, Masa magra,
-  Edad, Grasa visceral`), fila 2 = encabezados, fila 3 en adelante = datos.
-- **Yami / Yoshi / Spike** (mascotas): solo `Fecha, Peso`, sin encabezado,
-  desde la fila 1.
+- **Iván / Isa** (`dataType: 'full'`): fila 1 = objetivo (`Peso, %grasa,
+  Masa magra, Edad, Grasa visceral`), fila 2 = encabezados, fila 3 en
+  adelante = datos.
+- **Ilian / Idris / Yami / Yoshi / Spike** (`dataType: 'simple'`): solo
+  `Fecha, Peso`, sin encabezado, desde la fila 1.
 
 La API respeta esa estructura tal cual está en tu planilla — no la
 modifica ni le agrega columnas. Los nuevos registros se agregan al final
 de cada hoja.
+
+## Cómo agregar un perfil nuevo
+
+1. En la Sheet, creá una pestaña nueva con el nombre exacto que va a tener
+   el perfil (respetando mayúsculas/espacios).
+   - Si va a llevar objetivo y las 5 métricas (como Iván/Isa): fila 1 con
+     el objetivo, fila 2 con los encabezados, datos desde la fila 3.
+   - Si solo va a pesarse (como los bebés o las mascotas): `Fecha, Peso`
+     desde la fila 1, sin encabezado.
+2. En `backend/Code.gs`, agregá una entrada al array `PROFILES` con
+   `key` (identificador corto), `sheetName` (igual al nombre de la
+   pestaña), `name` (lo que se muestra), `dataType` (`'full'` o
+   `'simple'`), `category` (texto de la tarjeta: "Persona", "Bebé",
+   "Mascota", lo que corresponda) e `icon` (un emoji).
+3. Pegá el `Code.gs` actualizado en tu proyecto de Apps Script y volvé a
+   implementar (*Gestionar implementaciones → editar → Nueva versión →
+   Implementar*) para que la API lo sirva.
+
+El frontend no necesita ningún cambio — lee la lista de perfiles de la
+API y arma la pantalla de selección y el dashboard según `dataType`.

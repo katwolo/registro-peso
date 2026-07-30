@@ -159,7 +159,7 @@
       }, [
         h('span', { class: 'profile-icon', text: p.icon }),
         h('div', { class: 'profile-name', text: p.name }),
-        h('div', { class: 'profile-type', text: p.type === 'person' ? 'Persona' : 'Mascota' })
+        h('div', { class: 'profile-type', text: p.category })
       ]));
     });
     app.appendChild(grid);
@@ -209,7 +209,7 @@
     }
 
     app.appendChild(renderHeroCard());
-    if (profile.type === 'person') app.appendChild(renderMetricGrid());
+    if (profile.dataType === 'full') app.appendChild(renderMetricGrid());
     app.appendChild(renderChartCard());
     app.appendChild(renderHistoryCard());
   }
@@ -506,7 +506,7 @@
     field('date', 'Fecha', 'date', { value: todayLocalISO(), required: 'required' });
     field('peso', 'Peso (kg)', 'number', { step: '0.1', min: '0', required: 'required', placeholder: 'Ej: 89.5' });
 
-    if (profile.type === 'person') {
+    if (profile.dataType === 'full') {
       field('grasa', '% grasa corporal', 'number', { step: '0.1', min: '0', max: '100', placeholder: 'Ej: 24.5' });
       field('masaMagra', 'Masa magra (kg)', 'number', { step: '0.1', min: '0', placeholder: 'Opcional' });
       field('edad', 'Edad metabólica', 'number', { step: '1', min: '0', placeholder: 'Opcional' });
