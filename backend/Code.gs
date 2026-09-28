@@ -6,15 +6,19 @@
 
 var SPREADSHEET_ID = '1ZYoBPSLDR3CuYrv_6bkFDoMCLxjlAIkqIYYCn8sP4JI';
 
-// dataType controla qué columnas tiene la hoja: 'full' = peso + %grasa +
-// masa magra + edad metabólica + grasa visceral, con fila de objetivo
-// (como Iván/Isa). 'simple' = solo Fecha y Peso, sin objetivo (como
-// Yami/Yoshi/Spike o los bebés). category es solo el texto que se muestra
-// en la tarjeta de perfil, no afecta cómo se lee la hoja. weighMethod
-// 'holding' hace que el formulario pida "tu peso solo" y "tu peso con la
-// mascota en brazos" y calcule la resta en el frontend (los gatos no se
-// quedan quietos en una balanza); a la Sheet igual solo llega el resultado.
-var PROFILES = [
+// La lista de perfiles vive en la pestaña _Perfiles de la propia Sheet (no
+// hardcodeada acá), para poder crear/editar/borrar perfiles desde la app sin
+// redesplegar. Si esa pestaña no existe todavía (primera vez que corre esta
+// versión), se crea sola y se llena con los perfiles que ya estaban en uso.
+var CONFIG_SHEET_NAME = '_Perfiles';
+var CONFIG_COLUMNS = ['key', 'sheetName', 'name', 'dataType', 'category', 'icon', 'weighMethod'];
+
+// dataType controla qué columnas tiene la hoja de un perfil: 'full' = peso +
+// %grasa + masa magra + edad metabólica + grasa visceral, con fila de
+// objetivo (Iván/Isa). 'simple' = solo Fecha y Peso, sin objetivo (bebés y
+// mascotas). weighMethod 'holding' hace que el formulario pida "tu peso
+// solo" y "tu peso con la mascota en brazos" y calcule la resta.
+var DEFAULT_PROFILES = [
   { key: 'ivan', sheetName: 'Iván ', name: 'Iván', dataType: 'full', category: 'Persona', icon: '🧔' },
   { key: 'isa', sheetName: 'Isa', name: 'Isa', dataType: 'full', category: 'Persona', icon: '👩' },
   { key: 'ilian', sheetName: 'Ilian', name: 'Ilian', dataType: 'simple', category: 'Bebé', icon: '👶' },
@@ -43,6 +47,9 @@ function handleRequest_(action, params) {
     if (action === 'profiles') result = getProfiles();
     else if (action === 'data') result = getProfileData(params.profile);
     else if (action === 'addRecord') result = addRecord(params.profileKey, params.data);
+    else if (action === 'createProfile') result = createProfile(params);
+    else if (action === 'updateProfile') result = updateProfile(params);
+    else if (action === 'deleteProfile') result = deleteProfile(params);
     else throw new Error('Acción desconocida: ' + action);
     return jsonOutput_({ ok: true, result: result });
   } catch (err) {
@@ -54,16 +61,62 @@ function jsonOutput_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// ------------------------------------------------------- configuración
+
+function getConfigSheet_() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG_SHEET_NAME);
+    sheet.appendRow(CONFIG_COLUMNS);
+    DEFAULT_PROFILES.forEach(function (p) {
+      sheet.appendRow([p.key, p.sheetName, p.name, p.dataType, p.category, p.icon, p.weighMethod || '']);
+    });
+  }
+  return sheet;
+}
+
+function readProfiles_() {
+  var sheet = getConfigSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, CONFIG_COLUMNS.length).getValues()
+    .filter(function (r) { return r[0]; })
+    .map(function (r) {
+      return {
+        key: r[0], sheetName: r[1], name: r[2], dataType: r[3],
+        category: r[4], icon: r[5], weighMethod: r[6] || null
+      };
+    });
+}
+
+function findConfigRowIndex_(configSheet, key) {
+  var lastRow = configSheet.getLastRow();
+  var keys = configSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i][0] === key) return i + 2;
+  }
+  throw new Error('Perfil no encontrado en la configuración: ' + key);
+}
+
+function slugify_(name) {
+  var base = String(name).toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+  return base || ('perfil' + new Date().getTime());
+}
+
 function getProfiles() {
-  return PROFILES.map(function (p) {
+  return readProfiles_().map(function (p) {
     return { key: p.key, name: p.name, dataType: p.dataType, category: p.category, icon: p.icon, weighMethod: p.weighMethod || null };
   });
 }
 
 function findProfile_(profileKey) {
+  var profiles = readProfiles_();
   var profile = null;
-  for (var i = 0; i < PROFILES.length; i++) {
-    if (PROFILES[i].key === profileKey) profile = PROFILES[i];
+  for (var i = 0; i < profiles.length; i++) {
+    if (profiles[i].key === profileKey) profile = profiles[i];
   }
   if (!profile) throw new Error('Perfil no encontrado: ' + profileKey);
   return profile;
@@ -76,6 +129,92 @@ function getSheet_(profileKey) {
   if (!sheet) throw new Error('Hoja no encontrada: ' + profile.sheetName);
   return { profile: profile, sheet: sheet };
 }
+
+function orBlank_(v) { return v === null || v === undefined ? '' : v; }
+
+/** Fila de objetivo (fila 1) para un perfil 'full', a partir de porcentajes en humano (24.5, no 0.245). */
+function objetivoRow_(objetivo) {
+  objetivo = objetivo || {};
+  var grasa = parseNumber_(objetivo.grasa);
+  return [
+    'Objetivo',
+    orBlank_(parseNumber_(objetivo.peso)),
+    orBlank_(grasa !== null ? grasa / 100 : null),
+    orBlank_(parseNumber_(objetivo.masaMagra)),
+    orBlank_(parseNumber_(objetivo.edad)),
+    orBlank_(parseNumber_(objetivo.grasaVisceral))
+  ];
+}
+
+/** Crea un perfil nuevo: agrega su hoja en la Sheet y su fila en _Perfiles. */
+function createProfile(data) {
+  if (!data || !data.name || !String(data.name).trim()) throw new Error('Falta el nombre del perfil');
+  var name = String(data.name).trim();
+  var dataType = data.dataType === 'full' ? 'full' : 'simple';
+  var category = (data.category && String(data.category).trim()) || (dataType === 'full' ? 'Persona' : 'Otro');
+  var icon = (data.icon && String(data.icon).trim()) || '👤';
+  var weighMethod = dataType === 'simple' && data.weighMethod === 'holding' ? 'holding' : null;
+  var key = slugify_(name);
+
+  var profiles = readProfiles_();
+  if (profiles.some(function (p) { return p.key === key; })) {
+    throw new Error('Ya hay un perfil con un nombre muy parecido a "' + name + '"');
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (ss.getSheetByName(name)) throw new Error('Ya existe una hoja llamada "' + name + '" en la planilla');
+
+  var sheet = ss.insertSheet(name);
+  if (dataType === 'full') {
+    sheet.appendRow(objetivoRow_(data.objetivo));
+    sheet.appendRow(['Dia', 'Peso', '%grasa corporal ', 'Masa magra', 'Edad', 'Grasa visceral (kg)']);
+  }
+
+  getConfigSheet_().appendRow([key, name, name, dataType, category, icon, weighMethod || '']);
+  return getProfiles();
+}
+
+/** Edita nombre/categoría/ícono/objetivo de un perfil existente. No permite cambiar dataType. */
+function updateProfile(data) {
+  if (!data || !data.key) throw new Error('Falta indicar qué perfil editar');
+  var profile = findProfile_(data.key);
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(profile.sheetName);
+  if (!sheet) throw new Error('Hoja no encontrada: ' + profile.sheetName);
+
+  var newName = data.name && String(data.name).trim() ? String(data.name).trim() : profile.name;
+  if (newName !== profile.sheetName) {
+    if (ss.getSheetByName(newName)) throw new Error('Ya existe una hoja llamada "' + newName + '"');
+    sheet.setName(newName);
+  }
+
+  var newCategory = data.category !== undefined && data.category !== '' ? String(data.category).trim() : profile.category;
+  var newIcon = data.icon !== undefined && data.icon !== '' ? String(data.icon).trim() : profile.icon;
+  var newWeighMethod = profile.dataType === 'simple' && data.weighMethod === 'holding' ? 'holding' : null;
+
+  if (profile.dataType === 'full' && data.objetivo) {
+    var row = objetivoRow_(data.objetivo);
+    sheet.getRange(1, 1, 1, row.length).setValues([row]);
+  }
+
+  var configSheet = getConfigSheet_();
+  var rowIndex = findConfigRowIndex_(configSheet, profile.key);
+  configSheet.getRange(rowIndex, 2, 1, 6).setValues([[newName, newName, profile.dataType, newCategory, newIcon, newWeighMethod || '']]);
+
+  return getProfiles();
+}
+
+/** Saca el perfil de la lista. No borra la hoja ni sus datos históricos. */
+function deleteProfile(data) {
+  if (!data || !data.key) throw new Error('Falta indicar qué perfil borrar');
+  var configSheet = getConfigSheet_();
+  var rowIndex = findConfigRowIndex_(configSheet, data.key);
+  configSheet.deleteRow(rowIndex);
+  return getProfiles();
+}
+
+// ------------------------------------------------------------ lectura
 
 function parseNumber_(value) {
   if (value === null || value === undefined || value === '') return null;

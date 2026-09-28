@@ -106,6 +106,10 @@ con cuentas @gmail.com sueltas.
 
 ## Estructura de la Sheet que usa la API
 
+- **`_Perfiles`**: pestaña de configuración, creada sola la primera vez que
+  corre esta versión del backend. Guarda la lista de perfiles (columnas
+  `key, sheetName, name, dataType, category, icon, weighMethod`) — es lo
+  que lee/escribe el botón ⚙️ de la app. No hace falta tocarla a mano.
 - **Iván / Isa** (`dataType: 'full'`): fila 1 = objetivo (`Peso, %grasa,
   Masa magra, Edad, Grasa visceral`), fila 2 = encabezados, fila 3 en
   adelante = datos.
@@ -116,22 +120,27 @@ La API respeta esa estructura tal cual está en tu planilla — no la
 modifica ni le agrega columnas. Los nuevos registros se agregan al final
 de cada hoja.
 
-## Cómo agregar un perfil nuevo
+## Cómo agregar, editar o borrar un perfil
 
-1. En la Sheet, creá una pestaña nueva con el nombre exacto que va a tener
-   el perfil (respetando mayúsculas/espacios).
-   - Si va a llevar objetivo y las 5 métricas (como Iván/Isa): fila 1 con
-     el objetivo, fila 2 con los encabezados, datos desde la fila 3.
-   - Si solo va a pesarse (como los bebés o las mascotas): `Fecha, Peso`
-     desde la fila 1, sin encabezado.
-2. En `backend/Code.gs`, agregá una entrada al array `PROFILES` con
-   `key` (identificador corto), `sheetName` (igual al nombre de la
-   pestaña), `name` (lo que se muestra), `dataType` (`'full'` o
-   `'simple'`), `category` (texto de la tarjeta: "Persona", "Bebé",
-   "Mascota", lo que corresponda) e `icon` (un emoji).
-3. Pegá el `Code.gs` actualizado en tu proyecto de Apps Script y volvé a
-   implementar (*Gestionar implementaciones → editar → Nueva versión →
-   Implementar*) para que la API lo sirva.
+Desde la app: tocá el ⚙️ arriba a la derecha de la pantalla de selección
+de perfiles.
 
-El frontend no necesita ningún cambio — lee la lista de perfiles de la
-API y arma la pantalla de selección y el dashboard según `dataType`.
+- **Crear**: nombre, tipo ("Persona" con las 5 métricas y objetivos, o
+  "Solo peso" para bebés/mascotas), categoría (el texto de la tarjeta),
+  ícono (tipeando un emoji o eligiendo uno de la grilla), y si se pesa en
+  brazos restando tu peso. Crea sola la hoja nueva en la Sheet con la
+  estructura que corresponda.
+- **Editar**: nombre (renombra también la hoja), categoría, ícono, si se
+  pesa en brazos, y los valores de objetivo (para perfiles "Persona"). El
+  tipo no se puede cambiar una vez creado el perfil — cambiar la
+  estructura de una hoja con datos ya cargados es más riesgoso que vale
+  la pena automatizar.
+- **Borrar**: saca el perfil de la app. **No borra la hoja ni su
+  historial** en la planilla — si te arrepentís, se recupera agregando
+  el perfil de nuevo con el mismo nombre exacto de hoja.
+
+Como esto toca `backend/Code.gs`, después de esta actualización hace
+falta pegar el archivo en tu proyecto de Apps Script y volver a
+implementar (*Gestionar implementaciones → editar → Nueva versión →
+Implementar*) una vez. Después de eso, crear/editar/borrar perfiles ya
+no requiere tocar código nunca más.

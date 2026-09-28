@@ -148,8 +148,15 @@
   function renderPicker() {
     var app = document.getElementById('app');
     app.innerHTML = '';
-    app.appendChild(h('div', { class: 'picker-title', text: 'Registro de Peso' }));
-    app.appendChild(h('div', { class: 'picker-subtitle', text: 'Elegí un perfil para ver su evolución' }));
+
+    var header = h('div', { class: 'picker-header' }, [
+      h('div', {}, [
+        h('div', { class: 'picker-title', text: 'Registro de Peso' }),
+        h('div', { class: 'picker-subtitle', text: 'Elegí un perfil para ver su evolución' })
+      ]),
+      h('button', { class: 'gear-btn', type: 'button', title: 'Gestionar perfiles', onClick: openManageProfiles }, ['⚙️'])
+    ]);
+    app.appendChild(header);
 
     var grid = h('div', { class: 'profile-grid' });
     state.profiles.forEach(function (p) {
@@ -163,6 +170,209 @@
       ]));
     });
     app.appendChild(grid);
+  }
+
+  // ------------------------------------------------- gestión de perfiles
+
+  var QUICK_EMOJI = ['🧔', '👩', '👨', '👧', '👦', '👶', '🐱', '🐶', '🐹', '🐰', '🐦', '🐢', '🐠', '🦊', '🐻'];
+
+  function openManageProfiles() {
+    var backdrop = h('div', { class: 'modal-backdrop', onClick: function (e) { if (e.target === backdrop) close(); } });
+    var modal = h('div', { class: 'modal' });
+    backdrop.appendChild(modal);
+    modal.appendChild(h('div', { class: 'modal-title', text: 'Gestionar perfiles' }));
+
+    var list = h('div', { class: 'manage-list' });
+    state.profiles.forEach(function (p) {
+      list.appendChild(h('div', { class: 'manage-row' }, [
+        h('span', { class: 'manage-icon', text: p.icon }),
+        h('div', { class: 'manage-info' }, [
+          h('div', { class: 'manage-name', text: p.name }),
+          h('div', { class: 'manage-category', text: p.category })
+        ]),
+        h('button', {
+          type: 'button', class: 'icon-btn', title: 'Editar perfil',
+          onClick: function () { close(); openProfileForm(p); }
+        }, ['✏️']),
+        h('button', {
+          type: 'button', class: 'icon-btn', title: 'Borrar perfil',
+          onClick: function () { handleDelete(p); }
+        }, ['🗑️'])
+      ]));
+    });
+    modal.appendChild(list);
+
+    modal.appendChild(h('button', {
+      type: 'button', class: 'btn-primary', style: 'margin-top:14px;width:100%;',
+      onClick: function () { close(); openProfileForm(null); }
+    }, ['+ Crear perfil']));
+    modal.appendChild(h('button', {
+      type: 'button', class: 'btn-secondary', style: 'margin-top:10px;width:100%;', onClick: close
+    }, ['Cerrar']));
+
+    document.body.appendChild(backdrop);
+    function close() { backdrop.remove(); }
+
+    function handleDelete(p) {
+      var sure = confirm('¿Borrar el perfil "' + p.name + '"?\n\nLa hoja con su historial en la planilla NO se borra, solo deja de mostrarse en la app.');
+      if (!sure) return;
+      apiPost('deleteProfile', { key: p.key }).then(function (profiles) {
+        state.profiles = profiles;
+        close();
+        showToast('Perfil borrado');
+        renderPicker();
+      }).catch(function (err) {
+        alert(err && err.message ? err.message : 'No se pudo borrar el perfil.');
+      });
+    }
+  }
+
+  function openProfileForm(existing) {
+    var isEdit = !!existing;
+    var backdrop = h('div', { class: 'modal-backdrop', onClick: function (e) { if (e.target === backdrop) close(); } });
+    var modal = h('div', { class: 'modal' });
+    backdrop.appendChild(modal);
+    modal.appendChild(h('div', { class: 'modal-title', text: isEdit ? 'Editar perfil' : 'Crear perfil' }));
+
+    var form = h('form', {});
+    var fields = {};
+
+    function field(key, label, type, opts) {
+      opts = opts || {};
+      var input = h('input', Object.assign({ type: type, name: key }, opts));
+      fields[key] = input;
+      form.appendChild(h('div', { class: 'field' }, [h('label', { text: label }), input]));
+      return input;
+    }
+
+    field('name', 'Nombre', 'text', {
+      required: 'required', value: isEdit ? existing.name : '', placeholder: 'Ej: María'
+    });
+
+    var dataTypeWrap = h('div', { class: 'field' });
+    dataTypeWrap.appendChild(h('label', { text: 'Tipo de perfil' }));
+    var dataTypeSelect = h('select', { name: 'dataType' }, [
+      h('option', { value: 'simple' }, ['Solo peso (bebé o mascota)']),
+      h('option', { value: 'full' }, ['Persona (peso + %grasa, masa magra, edad, grasa visceral y objetivos)'])
+    ]);
+    dataTypeSelect.value = isEdit ? existing.dataType : 'simple';
+    if (isEdit) {
+      dataTypeSelect.disabled = true;
+      dataTypeWrap.appendChild(h('div', { style: 'font-size:11px;color:var(--text-muted);margin-top:4px;', text: 'No se puede cambiar el tipo después de creado.' }));
+    }
+    dataTypeWrap.appendChild(dataTypeSelect);
+    form.appendChild(dataTypeWrap);
+
+    field('category', 'Categoría (se muestra en la tarjeta)', 'text', {
+      value: isEdit ? existing.category : '', placeholder: 'Persona / Bebé / Mascota', list: 'category-suggestions'
+    });
+    var datalist = h('datalist', { id: 'category-suggestions' }, ['Persona', 'Bebé', 'Mascota'].map(function (c) {
+      return h('option', { value: c });
+    }));
+    form.appendChild(datalist);
+
+    var iconInput = field('icon', 'Ícono', 'text', { value: isEdit ? existing.icon : '👤', maxlength: '4' });
+    var emojiGrid = h('div', { class: 'emoji-grid' });
+    QUICK_EMOJI.forEach(function (emoji) {
+      emojiGrid.appendChild(h('button', {
+        type: 'button', class: 'emoji-option', onClick: function () { iconInput.value = emoji; }
+      }, [emoji]));
+    });
+    form.appendChild(emojiGrid);
+
+    var weighWrap = h('div', { class: 'field checkbox-field' });
+    var weighCheckbox = h('input', { type: 'checkbox', name: 'weighMethod' });
+    if (isEdit && existing.weighMethod === 'holding') weighCheckbox.checked = true;
+    weighWrap.appendChild(weighCheckbox);
+    weighWrap.appendChild(h('label', { text: 'Se pesa en brazos, calculando la resta (como los gatos)' }));
+    form.appendChild(weighWrap);
+
+    var objetivoWrap = h('div', {}, [
+      h('div', { class: 'card-title', style: 'margin-top:10px;', text: 'Objetivos (opcional)' })
+    ]);
+    var objetivoFields = {};
+    function objField(key, label) {
+      var input = h('input', { type: 'number', step: '0.1', min: '0', placeholder: 'Opcional' });
+      objetivoFields[key] = input;
+      objetivoWrap.appendChild(h('div', { class: 'field' }, [h('label', { text: label }), input]));
+    }
+    objField('peso', 'Peso objetivo (kg)');
+    objField('grasa', '% grasa objetivo');
+    objField('masaMagra', 'Masa magra objetivo (kg)');
+    objField('edad', 'Edad metabólica objetivo');
+    objField('grasaVisceral', 'Grasa visceral objetivo');
+    form.appendChild(objetivoWrap);
+
+    function syncVisibility() {
+      var isSimple = dataTypeSelect.value === 'simple';
+      weighWrap.style.display = isSimple ? 'flex' : 'none';
+      objetivoWrap.style.display = isSimple ? 'none' : 'block';
+    }
+    dataTypeSelect.addEventListener('change', syncVisibility);
+    syncVisibility();
+
+    if (isEdit && existing.dataType === 'full') {
+      apiGet('data', { profile: existing.key }).then(function (data) {
+        var obj = data.objetivo || {};
+        if (obj.peso != null) objetivoFields.peso.value = obj.peso;
+        if (obj.grasa != null) objetivoFields.grasa.value = (obj.grasa * 100).toFixed(1);
+        if (obj.masaMagra != null) objetivoFields.masaMagra.value = obj.masaMagra;
+        if (obj.edad != null) objetivoFields.edad.value = obj.edad;
+        if (obj.grasaVisceral != null) objetivoFields.grasaVisceral.value = obj.grasaVisceral;
+      }).catch(function () { /* si falla la precarga, se editan objetivos en blanco */ });
+    }
+
+    var errorBox = h('div', { class: 'form-error', style: 'display:none;' });
+    form.appendChild(errorBox);
+
+    var saveBtn = h('button', { type: 'submit', class: 'btn-primary' }, [isEdit ? 'Guardar cambios' : 'Crear perfil']);
+    form.appendChild(h('div', { class: 'modal-actions' }, [
+      h('button', { type: 'button', class: 'btn-secondary', onClick: close }, ['Cancelar']),
+      saveBtn
+    ]));
+
+    modal.appendChild(form);
+    document.body.appendChild(backdrop);
+    function close() { backdrop.remove(); }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorBox.style.display = 'none';
+
+      var name = fields.name.value.trim();
+      if (!name) {
+        errorBox.textContent = 'Poné un nombre.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      var payload = {
+        name: name,
+        dataType: dataTypeSelect.value,
+        category: fields.category.value.trim(),
+        icon: fields.icon.value.trim() || '👤',
+        weighMethod: weighCheckbox.checked ? 'holding' : null
+      };
+      if (dataTypeSelect.value === 'full') {
+        payload.objetivo = {};
+        Object.keys(objetivoFields).forEach(function (k) { payload.objetivo[k] = objetivoFields[k].value; });
+      }
+      if (isEdit) payload.key = existing.key;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Guardando…';
+      apiPost(isEdit ? 'updateProfile' : 'createProfile', payload).then(function (profiles) {
+        state.profiles = profiles;
+        close();
+        showToast(isEdit ? 'Perfil actualizado ✓' : 'Perfil creado ✓');
+        renderPicker();
+      }).catch(function (err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = isEdit ? 'Guardar cambios' : 'Crear perfil';
+        errorBox.textContent = err && err.message ? err.message : 'No se pudo guardar el perfil.';
+        errorBox.style.display = 'block';
+      });
+    });
   }
 
   // ----------------------------------------------------------- dashboard

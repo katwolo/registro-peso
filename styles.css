@@ -58,8 +58,14 @@
   #app { min-height: 100vh; padding: 20px 16px 64px; max-width: 720px; margin: 0 auto; }
 
   /* ---------- Profile picker ---------- */
+  .picker-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .picker-title { font-size: 22px; font-weight: 600; margin: 12px 4px 4px; }
   .picker-subtitle { font-size: 14px; color: var(--text-secondary); margin: 0 4px 20px; }
+  .gear-btn {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    border-radius: 10px; width: 36px; height: 36px; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 12px;
+  }
   .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   @media (min-width: 480px) { .profile-grid { grid-template-columns: repeat(3, 1fr); } }
   .profile-card {
@@ -174,6 +180,32 @@
     border-radius: 10px; padding: 10px 12px; font-size: 15px; font-family: inherit;
   }
   .field input:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+  .field select {
+    width: 100%; border: 1px solid var(--border); background: var(--page); color: var(--text-primary);
+    border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit;
+  }
+  .checkbox-field { display: flex; align-items: center; gap: 8px; }
+  .checkbox-field input { width: auto; }
+  .checkbox-field label { margin-bottom: 0; font-size: 13px; color: var(--text-primary); }
+  .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: -6px 0 14px; }
+  .emoji-option {
+    border: 1px solid var(--border); background: var(--page); border-radius: 10px;
+    font-size: 18px; padding: 6px 0; cursor: pointer;
+  }
+  .emoji-option:hover { background: var(--series-1-soft); }
+  .manage-list { max-height: 40vh; overflow-y: auto; }
+  .manage-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gridline);
+  }
+  .manage-row:last-child { border-bottom: none; }
+  .manage-icon { font-size: 22px; }
+  .manage-info { flex: 1; min-width: 0; }
+  .manage-name { font-size: 14px; font-weight: 600; }
+  .manage-category { font-size: 12px; color: var(--text-muted); }
+  .icon-btn {
+    border: 1px solid var(--border); background: var(--page); border-radius: 8px;
+    width: 32px; height: 32px; font-size: 14px; cursor: pointer; flex-shrink: 0;
+  }
   .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
   .btn-secondary, .btn-primary {
     flex: 1; border-radius: 10px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; border: none;
