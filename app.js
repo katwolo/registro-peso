@@ -504,7 +504,31 @@
     }
 
     field('date', 'Fecha', 'date', { value: todayLocalISO(), required: 'required' });
-    field('peso', 'Peso (kg)', 'number', { step: '0.1', min: '0', required: 'required', placeholder: 'Ej: 89.5' });
+
+    var resultBox = null;
+    if (profile.weighMethod === 'holding') {
+      field('ownWeight', 'Tu peso solo/a (kg)', 'number', { step: '0.1', min: '0', required: 'required', placeholder: 'Ej: 78.2' });
+      field('withPetWeight', 'Tu peso con ' + profile.name + ' en brazos (kg)', 'number', { step: '0.1', min: '0', required: 'required', placeholder: 'Ej: 82.1' });
+      resultBox = h('div', { class: 'field-result' });
+      form.appendChild(resultBox);
+      var updateResult = function () {
+        var own = parseFloat(fields.ownWeight.value);
+        var withPet = parseFloat(fields.withPetWeight.value);
+        if (isNaN(own) || isNaN(withPet)) { resultBox.textContent = ''; resultBox.classList.remove('warn'); return; }
+        var diff = withPet - own;
+        if (diff > 0) {
+          resultBox.textContent = 'Peso de ' + profile.name + ': ' + fmtNum(diff, 2) + ' kg';
+          resultBox.classList.remove('warn');
+        } else {
+          resultBox.textContent = 'Revisá los valores: tu peso con ' + profile.name + ' debería ser mayor que tu peso solo/a.';
+          resultBox.classList.add('warn');
+        }
+      };
+      fields.ownWeight.addEventListener('input', updateResult);
+      fields.withPetWeight.addEventListener('input', updateResult);
+    } else {
+      field('peso', 'Peso (kg)', 'number', { step: '0.1', min: '0', required: 'required', placeholder: 'Ej: 89.5' });
+    }
 
     if (profile.dataType === 'full') {
       field('grasa', '% grasa corporal', 'number', { step: '0.1', min: '0', max: '100', placeholder: 'Ej: 24.5' });
@@ -527,11 +551,28 @@
       errorBox.style.display = 'none';
       var payload = {};
       Object.keys(fields).forEach(function (key) { payload[key] = fields[key].value; });
-      if (!payload.date || !payload.peso) {
+
+      if (profile.weighMethod === 'holding') {
+        var own = parseFloat(payload.ownWeight);
+        var withPet = parseFloat(payload.withPetWeight);
+        if (!payload.date || isNaN(own) || isNaN(withPet)) {
+          errorBox.textContent = 'Completá la fecha y los dos pesos.';
+          errorBox.style.display = 'block';
+          return;
+        }
+        var diff = withPet - own;
+        if (diff <= 0) {
+          errorBox.textContent = 'Tu peso con ' + profile.name + ' debería ser mayor a tu peso solo/a. Revisá los valores.';
+          errorBox.style.display = 'block';
+          return;
+        }
+        payload = { date: payload.date, peso: diff.toFixed(2) };
+      } else if (!payload.date || !payload.peso) {
         errorBox.textContent = 'Completá al menos la fecha y el peso.';
         errorBox.style.display = 'block';
         return;
       }
+
       saveBtn.disabled = true;
       saveBtn.textContent = 'Guardando…';
       apiPost('addRecord', { profileKey: state.profileKey, data: payload }).then(function (data) {

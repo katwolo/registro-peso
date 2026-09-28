@@ -182,6 +182,8 @@
   .btn-primary { background: var(--series-1); color: #fff; }
   .btn-primary:disabled { opacity: .5; }
   .form-error { color: var(--bad); font-size: 12px; margin-top: -6px; margin-bottom: 12px; }
+  .field-result { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: -6px 0 14px; }
+  .field-result.warn { color: var(--bad); font-weight: 500; }
 
   .loading { text-align: center; color: var(--text-muted); padding: 60px 0; font-size: 14px; }
   .toast {
