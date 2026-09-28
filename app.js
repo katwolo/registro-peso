@@ -45,6 +45,29 @@
     return el;
   }
 
+  // Ícono armado con primitivas SVG (círculos/líneas), no con el emoji ⚙️:
+  // ese emoji necesita la fuente de color del sistema y en algunos
+  // navegadores/Android queda en blanco en vez de mostrar el engranaje.
+  function gearIconSvg_() {
+    var root = svg('svg', {
+      viewBox: '0 0 24 24', width: '18', height: '18', fill: 'none',
+      stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round'
+    });
+    root.appendChild(svg('circle', { cx: 12, cy: 12, r: 6 }));
+    root.appendChild(svg('circle', { cx: 12, cy: 12, r: 1.6, fill: 'currentColor', stroke: 'none' }));
+    [
+      [19.5, 12, 22, 12],
+      [15.75, 18.495, 17, 20.66],
+      [8.25, 18.495, 7, 20.66],
+      [4.5, 12, 2, 12],
+      [8.25, 5.505, 7, 3.34],
+      [15.75, 5.505, 17, 3.34]
+    ].forEach(function (t) {
+      root.appendChild(svg('line', { x1: t[0], y1: t[1], x2: t[2], y2: t[3] }));
+    });
+    return root;
+  }
+
   function fmtNum(n, decimals) {
     if (n === null || n === undefined || isNaN(n)) return '—';
     var d = decimals === undefined ? 1 : decimals;
@@ -154,7 +177,7 @@
         h('div', { class: 'picker-title', text: 'Registro de Peso' }),
         h('div', { class: 'picker-subtitle', text: 'Elegí un perfil para ver su evolución' })
       ]),
-      h('button', { class: 'gear-btn', type: 'button', title: 'Gestionar perfiles', onClick: openManageProfiles }, ['⚙️'])
+      h('button', { class: 'gear-btn', type: 'button', title: 'Gestionar perfiles', onClick: openManageProfiles }, [gearIconSvg_()])
     ]);
     app.appendChild(header);
 
